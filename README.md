@@ -1,5 +1,15 @@
 # wshowkeys
 
+> **Fork notice:** this is a modified version of
+> [wshowkeys](https://git.sr.ht/~sircmpwn/wshowkeys) by Drew DeVault,
+> distributed under the same GPLv3 license. Modified 2026-10-07 by
+> dedenbangkit:
+>
+> - `-l N` shows only the last N keystrokes, so the overlay stops growing
+> - fixes garbled text on scaled outputs (damage now covers the whole buffer)
+> - rounds the surface size up so the last glyph isn't clipped
+> - adds 6px padding around the text
+
 Displays keypresses on screen on supported Wayland compositors (requires
 `wlr_layer_shell_v1` support).
 
