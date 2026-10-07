@@ -20,6 +20,8 @@
 #include "wlr-layer-shell-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 
+#define PADDING 6
+
 struct wsk_keypress {
 	xkb_keysym_t sym;
 	char name[128];
@@ -43,6 +45,7 @@ struct wsk_state {
 	uint32_t foreground, background, specialfg;
 	const char *font;
 	int timeout;
+	int max_keys;
 
 	struct wl_display *display;
 	struct wl_registry *registry;
@@ -102,6 +105,8 @@ static void render_to_cairo(cairo_t *cairo, struct wsk_state *state,
 	cairo_set_source_u32(cairo, state->background);
 	cairo_paint(cairo);
 
+	int pad = PADDING * scale;
+	*width = pad;
 	struct wsk_keypress *key = state->keys;
 	while (key) {
 		bool special = false;
@@ -114,7 +119,7 @@ static void render_to_cairo(cairo_t *cairo, struct wsk_state *state,
 			cairo_set_source_u32(cairo, state->foreground);
 		}
 
-		cairo_move_to(cairo, *width, 0);
+		cairo_move_to(cairo, *width, pad);
 
 		int w, h;
 		if (special) {
@@ -130,6 +135,12 @@ static void render_to_cairo(cairo_t *cairo, struct wsk_state *state,
 			*height = h;
 		}
 		key = key->next;
+	}
+	if (state->keys) {
+		*width += pad;
+		*height += 2 * pad;
+	} else {
+		*width = *height = 0;
 	}
 }
 
@@ -155,6 +166,8 @@ static void render_frame(struct wsk_state *state) {
 	int scale = state->output ? state->output->scale : 1;
 	uint32_t width = 0, height = 0;
 	render_to_cairo(cairo, state, scale, &width, &height);
+	width = (width + scale - 1) / scale * scale;
+	height = (height + scale - 1) / scale * scale;
 	if (height / scale != state->height
 			|| width / scale != state->width
 			|| state->width == 0) {
@@ -192,7 +205,7 @@ static void render_frame(struct wsk_state *state) {
 		wl_surface_attach(state->surface,
 				state->current_buffer->buffer, 0, 0);
 		wl_surface_damage_buffer(state->surface, 0, 0,
-				state->width, state->height);
+				state->width * scale, state->height * scale);
 		wl_surface_commit(state->surface);
 	}
 }
@@ -454,10 +467,19 @@ static void handle_libinput_event(struct wsk_state *state,
 		}
 
 		struct wsk_keypress **link = &state->keys;
+		int nkeys = 0;
 		while (*link) {
 			link = &(*link)->next;
+			++nkeys;
 		}
 		*link = keypress;
+		/* Drop the oldest keys so the line stays short */
+		while (state->max_keys > 0 && nkeys >= state->max_keys) {
+			struct wsk_keypress *oldest = state->keys;
+			state->keys = oldest->next;
+			free(oldest);
+			--nkeys;
+		}
 		break;
 	}
 
@@ -515,9 +537,10 @@ int main(int argc, char *argv[]) {
 	state.foreground = 0xFFFFFFFF;
 	state.font = "monospace 24";
 	state.timeout = 1;
+	state.max_keys = 0;
 
 	int c;
-	while ((c = getopt(argc, argv, "hb:f:s:F:t:a:m:o:")) != -1) {
+	while ((c = getopt(argc, argv, "hb:f:s:F:t:l:a:m:o:")) != -1) {
 		switch (c) {
 		case 'b':
 			state.background = parse_color(optarg);
@@ -533,6 +556,9 @@ int main(int argc, char *argv[]) {
 			break;
 		case 't':
 			state.timeout = atoi(optarg);
+			break;
+		case 'l':
+			state.max_keys = atoi(optarg);
 			break;
 		case 'a':
 			if (strcmp(optarg, "top") == 0) {
@@ -553,7 +579,7 @@ int main(int argc, char *argv[]) {
 			return 0;
 		default:
 			fprintf(stderr, "usage: wshowkeys [-b|-f|-s #RRGGBB[AA]] [-F font] "
-					"[-t timeout]\n\t[-a top|left|right|bottom] [-m margin] "
+					"[-t timeout] [-l max keys]\n\t[-a top|left|right|bottom] [-m margin] "
 					"[-o output]\n");
 			return 1;
 		}

@@ -29,7 +29,7 @@ permissions to read input events. These permissions are dropped after startup.
 ## Usage
 
 ```
-wshowkeys [-b|-f|-s #RRGGBB[AA]] [-F font] [-t timeout]
+wshowkeys [-b|-f|-s #RRGGBB[AA]] [-F font] [-t timeout] [-l max keys]
     [-a top|left|right|bottom] [-m margin] [-o output]
 ```
 
@@ -38,6 +38,7 @@ wshowkeys [-b|-f|-s #RRGGBB[AA]] [-F font] [-t timeout]
 - *-s #RRGGBB[AA]*: set color for special keys
 - *-F font*: set font (Pango format, e.g. 'monospace 24')
 - *-t timeout*: set timeout before clearing old keystrokes
+- *-l max keys*: show at most this many recent keystrokes, dropping the oldest (default: unlimited)
 - *-a top|left|right|bottom*: anchor the keystrokes to an edge. May be specified
   twice.
 - *-m margin*: set a margin (in pixels) from the nearest edge
